@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import styles from "./style.module.scss";
 import axiosFetch from "@/Utils/fetchBackend";
 import "react-loading-skeleton/dist/skeleton.css";
-// import Image from "next/image";
 import Carousel from "../Carousel";
 import Link from "next/link";
 import {
@@ -10,98 +9,100 @@ import {
   BsFillBookmarkCheckFill,
   BsShare,
 } from "react-icons/bs";
-import { FaInfo, FaPlay } from "react-icons/fa";
+import { FaPlay } from "react-icons/fa";
 import {
   setBookmarks,
   checkBookmarks,
   removeBookmarks,
-  getBookmarks,
 } from "@/Utils/bookmark";
 import { navigatorShare } from "@/Utils/share";
 import Skeleton from "react-loading-skeleton";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/Utils/firebase";
 
-const externalImageLoader = ({ src }: { src: string }) =>
-  `${process.env.NEXT_PUBLIC_TMBD_IMAGE_URL}${src}`;
-
 const HomeHero = () => {
-  const [data, setData] = useState<any>([]);
-  const [images, setImages] = useState<any>([]);
-  const [loading, setLoading] = useState<any>(true);
+  const [data, setData] = useState<any[]>([]);
+  const [images, setImages] = useState<string[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [index, setIndex] = useState(0);
-  const [bookmarked, setBookmarked] = useState<any>(false);
-  const [user, setUser] = useState<any>();
-  const [bookmarkList, setBookmarkList] = useState<any>();
-  console.log({ index });
+  const [bookmarked, setBookmarked] = useState<boolean>(false);
+  const [user, setUser] = useState<string | null>(null);
+
   useEffect(() => {
     setLoading(true);
     const fetchData = async () => {
       try {
         const response = await axiosFetch({ requestID: "trending" });
-        setData(response.results);
-        let arr: any = [];
-        response.results.map((ele: any) => {
-          arr.push(process.env.NEXT_PUBLIC_TMBD_IMAGE_URL + ele.backdrop_path);
-        });
-        if (arr.length === 0) arr.push("/images/logo.svg");
-        setImages(arr);
+        setData(response.results || []);
+        const arr: string[] = response.results
+          ? response.results.map((ele: any) => 
+              process.env.NEXT_PUBLIC_TMBD_IMAGE_URL + ele.backdrop_path
+            ).filter(Boolean)
+          : [];
+        setImages(arr.length > 0 ? arr : ["/images/logo.svg"]);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
+        setLoading(false);
       }
     };
     fetchData();
-    onAuthStateChanged(auth, async (user) => {
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        const userID = user.uid;
-        setUser(userID);
-        // setBookmarkList(await getBookmarks({ userId: userID }));
-        // setBookmarkList(getBookmarks(userID));
-        setLoading(false);
+        setUser(user.uid);
       } else {
-        setLoading(true);
+        setUser(null);
       }
+      setLoading(false);
     });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
     const check = async () => {
-      if (data[index] !== undefined && data[index] !== null) {
-        setBookmarked(
-          await checkBookmarks({
-            userId: user,
-            type: data[index].media_type,
-            id: data[index].id,
-          }),
-        );
+      if (user && data[index]) {
+        const isBookmarked = await checkBookmarks({
+          userId: user,
+          type: data[index].media_type,
+          id: data[index].id,
+        });
+        setBookmarked(isBookmarked);
       }
     };
-    if (data?.length > 0) check();
+    check();
   }, [index, data, user]);
 
   const handleBookmarkAdd = () => {
-    console.log({ user });
+    if (user && data[index]) {
+      setBookmarks({
+        userId: user,
+        type: data[index].media_type,
+        id: data[index].id,
+      });
+      setBookmarked(true);
+    }
+  };
 
-    setBookmarks({
-      userId: user,
-      type: data[index]?.media_type,
-      id: data[index].id,
-    });
-    setBookmarked(!bookmarked);
-  };
   const handleBookmarkRemove = () => {
-    removeBookmarks({
-      userId: user,
-      type: data[index]?.media_type,
-      id: data[index].id,
-    });
-    setBookmarked(!bookmarked);
+    if (user && data[index]) {
+      removeBookmarks({
+        userId: user,
+        type: data[index].media_type,
+        id: data[index].id,
+      });
+      setBookmarked(false);
+    }
   };
+
   const handleShare = () => {
-    const url = `/detail?type=${data[index].media_type}&id=${data[index].id}`;
-    navigatorShare({ text: data[index].title, url: url });
+    if (data[index]) {
+      const url = `/detail?type=${data[index].media_type}&id=${data[index].id}`;
+      navigatorShare({ text: data[index].title || data[index].name, url: url });
+    }
   };
+
   return (
     <div className={styles.HomeHero}>
       <div className={styles.HomeCarousel}>
@@ -124,19 +125,15 @@ const HomeHero = () => {
           <h1
             data-tooltip-id="tooltip"
             data-tooltip-content={
-              data[index]?.title || data[index]?.name || "name"
+              data[index] ? (data[index].title || data[index].name || "name") : "Loading..."
             }
           >
-            {data[index]?.title || data[index]?.name || <Skeleton />}
+            {data[index] ? (data[index].title || data[index].name) : <Skeleton />}
           </h1>
           <div className={styles.HomeHeroMetaRow2}>
             <p className={styles.type}>
               {data[index] ? (
-                data[index].media_type == "movie" ? (
-                  "MOVIE"
-                ) : (
-                  "SHOW"
-                )
+                data[index].media_type === "movie" ? "MOVIE" : "SHOW"
               ) : (
                 <Skeleton />
               )}
@@ -145,7 +142,11 @@ const HomeHero = () => {
               <>
                 <Link
                   className={styles.links}
-                  href={`${data[index]?.media_type === "movie" ? `/watch?type=${data[index]?.media_type}&id=${data[index]?.id}` : `/watch?type=${data[index]?.media_type}&id=${data[index]?.id}&season=1&episode=1`}`}
+                  href={`${
+                    data[index].media_type === "movie"
+                      ? `/watch?type=${data[index].media_type}&id=${data[index].id}`
+                      : `/watch?type=${data[index].media_type}&id=${data[index].id}&season=1&episode=1`
+                  }`}
                   data-tooltip-id="tooltip"
                   data-tooltip-content="Watch Online"
                 >
@@ -153,12 +154,11 @@ const HomeHero = () => {
                 </Link>
                 <Link
                   className={styles.links}
-                  href={`/detail?type=${data[index]?.media_type}&id=${data[index]?.id}`}
+                  href={`/detail?type=${data[index].media_type}&id=${data[index].id}`}
                   data-tooltip-id="tooltip"
                   data-tooltip-content="Know More"
                 >
-                  {" "}
-                  detail{" "}
+                  detail
                 </Link>
 
                 {bookmarked ? (
