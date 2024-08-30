@@ -35,11 +35,11 @@ export default function App({ Component, pageProps }: any) {
   return (
     <>
       <Head>
-        <title>Rive</title>
+        <title>Series Stream</title>
         <meta name="description" content="Your Personal Streaming Oasis" />
         <meta
           name="keywords"
-          content="movie, streaming, tv, rive, stream. movie app, tv shows, movie download"
+          content="movie, streaming, tv, series, stream. movie app, tv shows, movie download"
         />
         <meta
           name="google-site-verification"
