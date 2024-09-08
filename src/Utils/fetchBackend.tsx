@@ -17,7 +17,7 @@ interface Fetch {
 export default async function axiosFetch({
   requestID,
   id,
-  language = "tr-TR",
+  language = "en-US",
   page = 1,
   genreKeywords,
   sortBy = "popularity.desc",

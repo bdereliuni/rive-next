@@ -189,13 +189,13 @@ const Watch = () => {
           setWatchDetails={setWatchDetails}
         />
       )}
-      <div className={`${styles.loader} skeleton`}></div>
       {id && (
         <iframe
-          scrolling="no"
           src={getSource()}
           className={styles.iframe}
           allowFullScreen
+          allow="autoplay; fullscreen"
+          loading="lazy"
         ></iframe>
       )}
     </div>
